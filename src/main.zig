@@ -7,9 +7,11 @@ fn windowShouldClose() bool {
     return rl.windowShouldClose() or exit;
 }
 
+// gameStatus and UI.xMenu.active seems redundant..
 var gameStatus: union(enum) {
     mainMenu,
     play,
+    paused,
 } = .mainMenu;
 
 pub fn main() anyerror!void {
@@ -17,6 +19,7 @@ pub fn main() anyerror!void {
     const screenHeight = 450;
 
     var mainMenu = menu.MainMenu{ .active = true };
+    var pauseMenu = menu.PauseMenu{ .active = false };
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
@@ -40,7 +43,32 @@ pub fn main() anyerror!void {
                 }
             },
             .play => {
-                // Update game state
+                if (rl.isKeyPressed(.key_escape)) {
+                    pauseMenu.active = true;
+                    gameStatus = .paused;
+                }
+            },
+            .paused => {
+                const pauseStatus = if (rl.isKeyPressed(.key_escape))
+                    .play
+                else
+                    pauseMenu.update();
+
+                switch (pauseStatus) {
+                    .nothing => {},
+                    .play => {
+                        // This is redundant when we go back due to clicking, but needed when pressing escape
+                        pauseMenu.active = false;
+                        gameStatus = .play;
+                    },
+                    .menu => {
+                        mainMenu.active = true;
+                        gameStatus = .mainMenu;
+                    },
+                    .exit => {
+                        exit = true;
+                    },
+                }
             },
         }
 
@@ -49,12 +77,14 @@ pub fn main() anyerror!void {
 
         rl.clearBackground(rl.Color.black);
         mainMenu.draw();
+        pauseMenu.draw();
         // This logic will be done inside gameState.draw()
         switch (gameStatus) {
             .play => {
                 rl.drawText("Intensive gameplay!!", 30, 200, 50, rl.Color.red);
             },
             .mainMenu => {},
+            .paused => {},
         }
     }
 }
