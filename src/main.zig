@@ -1,25 +1,19 @@
 const std = @import("std");
 const rl = @import("raylib");
 const menu = @import("menu.zig");
+const gameState = @import("gameState.zig");
 
 var exit = false;
 fn windowShouldClose() bool {
     return rl.windowShouldClose() or exit;
 }
 
-// gameStatus and UI.xMenu.active seems redundant..
-var gameStatus: union(enum) {
-    mainMenu,
-    play,
-    paused,
-} = .mainMenu;
-
 pub fn main() anyerror!void {
     const screenWidth = 800;
     const screenHeight = 450;
 
-    var mainMenu = menu.MainMenu{ .active = true };
-    var pauseMenu = menu.PauseMenu{ .active = false };
+    var mainMenu = menu.MainMenu{};
+    var pauseMenu = menu.PauseMenu{};
 
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
@@ -29,13 +23,13 @@ pub fn main() anyerror!void {
 
     // Main game loop
     while (!windowShouldClose()) {
-        switch (gameStatus) {
+        switch (gameState.gameStatus) {
             .mainMenu => {
                 switch (mainMenu.update()) {
                     .nothing => {},
                     .play => {
-                        gameStatus = .play;
-                        std.debug.print("playing..\n", .{});
+                        gameState.gameStatus = .play;
+                        gameState.game = gameState.GameState.init();
                     },
                     .exit => {
                         exit = true;
@@ -44,9 +38,10 @@ pub fn main() anyerror!void {
             },
             .play => {
                 if (rl.isKeyPressed(.key_escape)) {
-                    pauseMenu.active = true;
-                    gameStatus = .paused;
+                    gameState.gameStatus = .paused;
                 }
+
+                gameState.game.update();
             },
             .paused => {
                 const pauseStatus = if (rl.isKeyPressed(.key_escape))
@@ -58,12 +53,10 @@ pub fn main() anyerror!void {
                     .nothing => {},
                     .play => {
                         // This is redundant when we go back due to clicking, but needed when pressing escape
-                        pauseMenu.active = false;
-                        gameStatus = .play;
+                        gameState.gameStatus = .play;
                     },
                     .menu => {
-                        mainMenu.active = true;
-                        gameStatus = .mainMenu;
+                        gameState.gameStatus = .mainMenu;
                     },
                     .exit => {
                         exit = true;
@@ -76,15 +69,8 @@ pub fn main() anyerror!void {
         defer rl.endDrawing();
 
         rl.clearBackground(rl.Color.black);
+        gameState.game.draw();
         mainMenu.draw();
         pauseMenu.draw();
-        // This logic will be done inside gameState.draw()
-        switch (gameStatus) {
-            .play => {
-                rl.drawText("Intensive gameplay!!", 30, 200, 50, rl.Color.red);
-            },
-            .mainMenu => {},
-            .paused => {},
-        }
     }
 }
