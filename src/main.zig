@@ -1,34 +1,60 @@
-// raylib-zig (c) Nikolas Wipper 2023
-
+const std = @import("std");
 const rl = @import("raylib");
+const menu = @import("menu.zig");
+
+var exit = false;
+fn windowShouldClose() bool {
+    return rl.windowShouldClose() or exit;
+}
+
+var gameStatus: union(enum) {
+    mainMenu,
+    play,
+} = .mainMenu;
 
 pub fn main() anyerror!void {
-    // Initialization
-    //--------------------------------------------------------------------------------------
     const screenWidth = 800;
     const screenHeight = 450;
 
-    rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
-    defer rl.closeWindow(); // Close window and OpenGL context
+    var mainMenu = menu.MainMenu{ .active = true };
 
-    rl.setTargetFPS(60); // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
+    rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
+    defer rl.closeWindow();
+
+    rl.setTargetFPS(60);
+    rl.setExitKey(.key_null);
 
     // Main game loop
-    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
-        // Update
-        //----------------------------------------------------------------------------------
-        // TODO: Update your variables here
-        //----------------------------------------------------------------------------------
+    while (!windowShouldClose()) {
+        switch (gameStatus) {
+            .mainMenu => {
+                switch (mainMenu.update()) {
+                    .nothing => {},
+                    .play => {
+                        gameStatus = .play;
+                        std.debug.print("playing..\n", .{});
+                    },
+                    .exit => {
+                        exit = true;
+                    },
+                }
+            },
+            .play => {
+                // Update game state
+            },
+        }
 
-        // Draw
-        //----------------------------------------------------------------------------------
         rl.beginDrawing();
         defer rl.endDrawing();
 
-        rl.clearBackground(rl.Color.white);
-
-        rl.drawText("Congrats! You created your first window!", 190, 200, 20, rl.Color.light_gray);
-        //----------------------------------------------------------------------------------
+        rl.clearBackground(rl.Color.black);
+        mainMenu.draw();
+        // This logic will be done inside gameState.draw()
+        switch (gameStatus) {
+            .play => {
+                rl.drawText("Intensive gameplay!!", 30, 200, 50, rl.Color.red);
+            },
+            .mainMenu => {},
+        }
     }
 }
