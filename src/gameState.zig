@@ -107,7 +107,8 @@ pub const GameState = struct {
                 // This solution might skip the deletion when the i-th element and the last element should be deleted in the same frame, but that's okey.
                 const shouldDelete = bullet.pos.x < leftBound or bullet.pos.x > rightBound or bullet.pos.y < upBound or bullet.pos.y > downBound;
                 if (shouldDelete) {
-                    _ = self.*.bullets.swapRemove(i);
+                    if (i < self.bullets.items.len) // This is needed to prevent out of bounds indexing
+                        _ = self.*.bullets.swapRemove(i);
                 }
             }
         }
