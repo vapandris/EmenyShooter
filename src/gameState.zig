@@ -1,5 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
+const timer = @import("timer.zig");
 
 const UI = @import("UI.zig");
 
@@ -13,9 +14,12 @@ pub var game: GameState = undefined;
 
 pub const GameState = struct {
     const BulletArray = std.ArrayList(Circle);
+    const EnemyArray = std.ArrayList(Circle);
 
     player: Circle,
     bullets: BulletArray,
+    enemies: EnemyArray,
+    enemySpawner: timer.RepeateTimer,
 
     pub fn init() GameState {
         return GameState{
@@ -24,11 +28,14 @@ pub const GameState = struct {
                 .r = 30,
             },
             .bullets = BulletArray.init(std.heap.c_allocator),
+            .enemies = EnemyArray.init(std.heap.c_allocator),
+            .enemySpawner = timer.RepeateTimer.start(1400),
         };
     }
 
     pub fn deinit(self: GameState) void {
         self.bullets.deinit();
+        self.enemies.deinit();
     }
 
     pub fn reset(self: *GameState) void {
@@ -53,6 +60,15 @@ pub const GameState = struct {
                     @intFromFloat(bullet.pos.y),
                     bullet.r,
                     UI.light_green,
+                );
+            }
+
+            for (self.enemies.items) |enemy| {
+                rl.drawCircle(
+                    @intFromFloat(enemy.pos.x),
+                    @intFromFloat(enemy.pos.y),
+                    enemy.r,
+                    rl.Color.red,
                 );
             }
 
@@ -110,6 +126,36 @@ pub const GameState = struct {
                     if (i < self.bullets.items.len) // This is needed to prevent out of bounds indexing
                         _ = self.*.bullets.swapRemove(i);
                 }
+            }
+
+            // Spawn enemy:
+            if (self.*.enemySpawner.loop_count() > 0) {
+                const rndX: f32 = @floatFromInt(std.crypto.random.intRangeAtMost(i32, 30, 770));
+                const rndY: f32 = @floatFromInt(std.crypto.random.intRangeAtMost(i32, 30, 420));
+
+                const newEnemy = Circle{
+                    .pos = .{
+                        .x = rndX,
+                        .y = rndY,
+                    },
+                    // aim for the player
+                    .velocity = .{
+                        .x = self.player.pos.x - rndX,
+                        .y = self.player.pos.y - rndY,
+                    },
+                    .r = 25,
+                };
+
+                self.*.enemies.append(newEnemy) catch |err| {
+                    std.debug.print("ERROR when appending enemy to enemies {}", .{err});
+                };
+            }
+
+            // Move enemies:
+            for (self.*.enemies.items) |*enemy| {
+                enemy.*.velocity.x = self.player.pos.x - enemy.pos.x;
+                enemy.*.velocity.y = self.player.pos.y - enemy.pos.y;
+                enemy.move(3);
             }
         }
     }
