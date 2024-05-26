@@ -51,7 +51,7 @@ pub const PauseMenu = struct {
                 self.continueBtn.pos.x + self.continueBtn.borderThickness,
                 self.continueBtn.pos.y - self.continueBtn.size.h,
                 30,
-                UI.green,
+                UI.my_sexy_gray,
             );
 
             self.continueBtn.draw("Continue");

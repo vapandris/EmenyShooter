@@ -18,6 +18,9 @@ pub fn main() anyerror!void {
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow();
 
+    gameState.game = gameState.GameState.init();
+    defer gameState.game.deinit();
+
     rl.setTargetFPS(60);
     rl.setExitKey(.key_null);
 
@@ -29,7 +32,7 @@ pub fn main() anyerror!void {
                     .nothing => {},
                     .play => {
                         gameState.gameStatus = .play;
-                        gameState.game = gameState.GameState.init();
+                        gameState.game.reset();
                     },
                     .exit => {
                         exit = true;
