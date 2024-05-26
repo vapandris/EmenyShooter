@@ -129,7 +129,7 @@ pub const GameState = struct {
             }
 
             // Spawn enemy:
-            if (self.*.enemySpawner.loop_count() > 0) {
+            if (self.enemySpawner.loop_count() > 0) {
                 const rndX: f32 = @floatFromInt(std.crypto.random.intRangeAtMost(i32, 30, 770));
                 const rndY: f32 = @floatFromInt(std.crypto.random.intRangeAtMost(i32, 30, 420));
 
@@ -151,10 +151,66 @@ pub const GameState = struct {
                 };
             }
 
+            // ============================== \\
+            // Resolve bullet-enemy collisons ||
+            // ============================== //
+            const CirclePair = struct {
+                first: *Circle,
+                second: *Circle,
+            };
+            var collidingCircles = std.ArrayList(CirclePair).init(std.heap.c_allocator);
+            defer collidingCircles.deinit();
+
+            // resolve staticly first:
+            for (self.enemies.items) |*enemy| {
+                for (self.bullets.items) |*bullet| {
+                    if (Circle.isCircleCircleOverlap(enemy.*, bullet.*)) {
+                        const ip = bullet.pos;
+                        const ep = enemy.pos;
+
+                        const distance = @sqrt((ip.x - ep.x) * (ip.x - ep.x) + (ip.y - ep.y) * (ip.y - ep.y));
+                        const overlap = 0.5 * (distance - enemy.r - bullet.r);
+                        const displaceDirectionX: f32 = (ip.x - ep.x) / distance;
+                        const displaceDirectionY: f32 = (ip.y - ep.y) / distance;
+
+                        bullet.*.pos.x -= overlap * displaceDirectionX;
+                        bullet.*.pos.y -= overlap * displaceDirectionY;
+                        enemy.*.pos.x += overlap * displaceDirectionX;
+                        enemy.*.pos.y += overlap * displaceDirectionY;
+
+                        collidingCircles.append(CirclePair{
+                            .first = bullet,
+                            .second = enemy,
+                        }) catch |err| {
+                            std.debug.print("ERROR when appending colliding CirclePair: {}", .{err});
+                        };
+                    }
+                }
+            }
+
+            // resolve dynamic collision:
+            for (collidingCircles.items) |circlePair| {
+                var c1: *Circle = circlePair.first;
+                var c2: *Circle = circlePair.second;
+
+                // Optimised wiki version:
+                const distance: f32 = @sqrt((c1.pos.x - c2.pos.x) * (c1.pos.x - c2.pos.x) + (c1.pos.y - c2.pos.y) * (c1.pos.y - c2.pos.y));
+
+                const nx: f32 = (c2.pos.x - c1.pos.x) / distance;
+                const ny: f32 = (c2.pos.y - c1.pos.y) / distance;
+
+                const kx: f32 = (c1.velocity.x - c2.velocity.x);
+                const ky: f32 = (c1.velocity.y - c2.velocity.y);
+                const p: f32 = 2 * ((nx * kx + ny * ky) / (c1.mass() + c2.mass()));
+
+                c1.*.velocity.x -= p * c2.mass() * nx;
+                c1.*.velocity.y -= p * c2.mass() * ny;
+                c2.*.velocity.x += p * c1.mass() * nx;
+                c2.*.velocity.y += p * c1.mass() * ny;
+            }
+
             // Move enemies:
-            for (self.*.enemies.items) |*enemy| {
-                enemy.*.velocity.x = self.player.pos.x - enemy.pos.x;
-                enemy.*.velocity.y = self.player.pos.y - enemy.pos.y;
+            for (self.enemies.items) |*enemy| {
                 enemy.move(3);
             }
         }
